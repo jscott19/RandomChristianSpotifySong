@@ -3,6 +3,8 @@
 Plays random songs on Spotify.
 """
 
+LIMIT = 30 # Max number of songs to list in search results, must be an integer between 1 and 50
+
 import random # for choosing random songs
 import sys # for verbose mode
 import string # for random queries
@@ -17,7 +19,7 @@ import spotipy.util as util # for authorized requests
 
 
 class RandomPlayer:
-	def __init__(self, random_song_schema='word'):
+	def __init__(self, random_song_schema='word', limit=LIMIT):
 		"""Creates an instance of the RandomPlayer class.
 
 		:random_song_schema: Either 'word' or 'char'. If 'word',
@@ -32,6 +34,7 @@ class RandomPlayer:
 
 		self.random_song_schema = random_song_schema
 		self.authenticated = False
+		self.limit = limit # Max number of songs to list in search results, must be an integer between 1 and 50
 
 	def _getUsername(self):
 		"""Gets the Spotify username for the user and stores
@@ -127,14 +130,19 @@ class RandomPlayer:
 			randSearchString = random.choice(words)
 
 			if verbose: print("Retrieving songs for query '{}'...".format(randSearchString))
-			randSongs = self.sp.search(randSearchString, limit=30)
+			randSongs = self.sp.search(randSearchString+' genre: Christian', limit=self.limit)
 			if verbose: print("Retrieved {} songs.".format(len(randSongs['tracks']['items'])))
 
 			if randSongs['tracks']['items']:
 				output = random.choice(randSongs['tracks']['items'])
 				if verbose:
-					artists = [ artist['name'] for artist in output['artists'] ]
+					# sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=self.CLIENT_ID, client_secret=self.CLIENT_SECRET)) #spotify object to access API
+					# print(sp.artist(output['artists'][0]["external_urls"]["spotify"])['genres'])
+					artists = [ artist['name'] for artist in output['artists']]
 					print("There are valid songs. Choosing {} by {}.".format(output['name'], ', '.join(artists)))
+					genres = []
+					for artist in output['artists']: genres += self.sp.artist(artist["external_urls"]["spotify"])['genres']
+					print("Artist genres: {}\n".format(', '.join(genres)))
 				return output
 			elif verbose:
 				print("There are no valid songs. Trying again.")
@@ -153,14 +161,17 @@ class RandomPlayer:
 			randSearchString = random.choice(alphabet) + random.choice(alphabet) + random.choice(alphabet)
 
 			if verbose: print("Retrieving songs for query '{}'...".format(randSearchString))
-			randSongs = self.sp.search(randSearchString, limit=30)
+			randSongs = self.sp.search(randSearchString+' genre: Christian', limit=self.limit)
 			if verbose: print("Retrieved {} songs.".format(len(randSongs['tracks']['items'])))
 
 			if randSongs['tracks']['items']:
 				output = random.choice(randSongs['tracks']['items'])
 				if verbose:
-					artists = [ artist['name'] for artist in output['artists'] ]
+					artists = [ artist['name'] for artist in output['artists']]
 					print("There are valid songs. Choosing {} by {}.".format(output['name'], ', '.join(artists)))
+					genres = []
+					for artist in output['artists']: genres += self.sp.artist(artist["external_urls"]["spotify"])['genres']
+					print("Artist genres: {}\n".format(', '.join(genres)))
 				return output
 			elif verbose:
 				print("There are no valid songs. Trying again.")
@@ -192,9 +203,9 @@ if __name__ == '__main__':
 		schema = "word"
 	else:
 		schema_input = input("Use 'char' schema instead of 'word'? (Y/N): ")
-		if schema_input == "Y":
+		if schema_input in "Yy":
 			schema = "char"
-		elif schema_input == "N":
+		elif schema_input in "Nn":
 			schema = "word"
 		else:
 			print("You didn't type Y or N, using 'word' schema by default...")
@@ -205,7 +216,14 @@ if __name__ == '__main__':
 	else:
 		verbose = True
 
-	player = RandomPlayer(random_song_schema=schema)
+	if '--limit' in sys.argv:
+		index = sys.argv.index('--limit')
+		limit = int(sys.argv[index+1])
+	else:
+		# limit = random.randint(1, 50)
+		limit = LIMIT
+
+	player = RandomPlayer(random_song_schema=schema, limit=limit)
 	player.authenticate(verbose=verbose)
 	player.playRandomSong(numSongs=numSongs, verbose=verbose)
 
